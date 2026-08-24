@@ -1,0 +1,114 @@
+/* ---------- Global body styling ---------- */
+/* :global is REQUIRED in CSS modules */
+:global(body) {
+	background-color: var(--gray);
+	color: var(--white);
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+		Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+		sans-serif;
+	margin: 0;
+}
+
+/* ================= HEADER ================= */
+header {
+	height: 70px;
+	background-color: var(--darkgray);
+	border-bottom: 1px solid #273549;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 24px;
+}
+
+.heading_container {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.logo {
+	width: 40px;
+	height: 40px;
+}
+
+.heading_container h2 {
+	font-size: 20px;
+	font-weight: 600;
+	color: #f9fafb;
+}
+
+/* Header links (Upload / Login) */
+header a {
+	color: #f9fafb;
+	text-decoration: none;
+	font-size: 14px;
+	padding: 8px 14px;
+	border-radius: 6px;
+	background-color: #1f2937;
+	transition: background-color 0.2s ease;
+}
+
+header a:hover {
+	background-color: #273549;
+}
+
+/* ================= PAGE ================= */
+section {
+	padding: 24px;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr); /* FORCE 3 per row */
+	gap: 24px;
+	max-width: 1600px;
+	margin: 0 auto;
+}
+
+/* ================= VIDEO CARD ================= */
+.videoCard {
+	background-color: var(--darkgray);
+	border-radius: 8px;
+	overflow: hidden;
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.videoCard:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.thumbnailWrapper {
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	background-color: #000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.thumbnailWrapper img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.cardBody {
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.videoTitle {
+	font-size: 15px;
+	font-weight: 600;
+	color: #f9fafb;
+	line-height: 1.3;
+}
+
+.videoMeta {
+	font-size: 13px;
+	color: #9ca3af;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
