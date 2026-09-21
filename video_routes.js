@@ -26,6 +26,7 @@ const storage = multer.diskStorage({
 	},
 	filename: (req, file, cb) => {
         if (file.fieldname === "thumbnail") {
+
             cb(null, `${req.video_id}.tmp`);
         }
         else {
@@ -45,6 +46,114 @@ const generateVideoId = async (req, res, next) => {
     next();
 };
 
+const generateThumbnail = async (req) => {
+    let defaultPath;
+    let thumbnailPath = `${req.videoDir}/${req.video_id}.tmp`;
+    const thumbnailExists = fs.existsSync(thumbnailPath);
+
+    if (thumbnailExists) {
+        const newPath = `${req.videoDir}/${req.video_id}.jpeg`;
+        await sharp(thumbnailPath)
+            .jpeg()
+            .toFile(newPath);
+
+        fs.unlinkSync(thumbnailPath);
+        thumbnailPath = newPath;
+    }
+
+    defaultPath = `${req.videoDir}/${req.video_id}-default.jpeg`;
+    await new Promise((resolve, reject) => {
+        const ffmpeg = spawn("ffmpeg", [
+            "-i", `${req.videoDir}/${req.video_id}`,
+            "-ss", "00:00:05",
+            "-frames:v", "1",
+            defaultPath
+        ]);
+
+        ffmpeg.on("close", code => {
+            if (code === 0) resolve();
+            else reject(new Error(`ffmpeg exited with code ${code}`));
+        });
+
+        ffmpeg.on("error", reject);
+    });
+
+    const metadata = await sharp(defaultPath).metadata();
+    const is16By9 = Math.abs(metadata.width / metadata.height - 16 / 9) < 0.01;
+
+    const resizeThumbnail = async (path) => {
+        const {data, info} = await sharp(path)
+            .resize(50, 50)
+            .removeAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+
+        const colors = new Map();
+        
+        for (let i = 0; i < data.length; i += 3) {
+            const r = Math.floor(data[i] / 16) * 16;
+            const g = Math.floor(data[i + 1] / 16) * 16;
+            const b = Math.floor(data[i + 2] / 16) * 16;
+
+            const key = `${r},${g},${b}`;
+            colors.set(key, (colors.get(key) || 0) + 1);
+        }
+        
+        const sortedColors = [...colors.entries()]
+            .sort((a, b) => b[1] - a[1]);
+
+        let mostCommon = sortedColors[0];
+        for (let color of sortedColors) {
+            const splitColor = color[0].split(",");
+
+            if (!(splitColor[0] == splitColor[1] && splitColor[1] == splitColor[2])) {
+                mostCommon = color;
+                break;
+            }
+        }
+
+        mostCommon = mostCommon[0].split(",");
+           
+        const bg = sharp({
+            create: {
+                width: 1280,
+                height: 720,
+                channels: 3,
+                background: { r: mostCommon[0], g: mostCommon[1], b: mostCommon[2] }
+            }
+        });
+
+        const scale = Math.min(
+            1280 / metadata.width,
+            720 / metadata.height
+        );
+
+        const width = Math.round(metadata.width * scale);
+        const height = Math.round(metadata.height * scale);
+
+        const thumbnail = await sharp(path)
+            .resize(width, height, {
+                fit: "contain"
+            })
+            .toBuffer();
+
+        await bg
+            .composite([
+                {
+                    input: thumbnail,
+                    gravity: "center"
+                }
+            ])
+            .jpeg()
+            .toFile(path);
+    };
+
+    if (!is16By9) {
+        await resizeThumbnail(defaultPath); 
+        if (thumbnailExists) await resizeThumbnail(thumbnailPath);
+    }
+}
+
 video_router.post("/upload_video", auth_middleware, generateVideoId, upload.fields([{name: "video", maxCount: 1}, {name: "thumbnail", maxCount: 1}]), async (req, res, next) => {
 	const {video_title, video_desc} = JSON.parse(req.body.data);
 	
@@ -60,21 +169,7 @@ video_router.post("/upload_video", auth_middleware, generateVideoId, upload.fiel
 		});
 
 		await video.save();
-
-        if (fs.existsSync(`${req.videoDir}/${req.video_id}.tmp`)) {
-            await sharp(`${req.videoDir}/${req.video_id}.tmp`)
-                .jpeg()
-                .toFile(`${req.videoDir}/${req.video_id}.jpeg`);
-
-            fs.unlinkSync(`${req.videoDir}/${req.video_id}.tmp`);
-        }
-
-        const ffmpeg = spawn("ffmpeg", [
-            "-i", `${req.videoDir}/${req.video_id}`,
-            "-ss", "00:00:05",
-            "-frames:v", "1",
-            `${req.videoDir}/${req.video_id}-default.jpeg`
-        ]);
+        await generateThumbnail(req);
 
 		res.status(200).json({success: true, message: "Video Uploaded"});
 	}
